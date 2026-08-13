@@ -284,3 +284,35 @@ button.active {
 	color: var(--hint);
 	margin-bottom: 2px;
 }
+
+.d20-result {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.d20-row {
+	padding: 12px;
+	background: var(--secondary-bg);
+	border-radius: 8px;
+	cursor: pointer;
+	font-size: 15px;
+	user-select: none;
+	text-align: left;
+}
+
+.d20-row.hit {
+	background: #2ecc71;
+	color: #fff;
+}
+
+.d20-row.miss {
+	background: #e74c3c;
+	color: #fff;
+}
+
+.d20-total {
+	padding: 10px 12px;
+	font-weight: bold;
+	text-align: right;
+}

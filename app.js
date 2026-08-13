@@ -49,46 +49,50 @@ function rollD20(count, modifier, mode) {
 	return { modifier, original, selected, total, isCritical };
 }
 
-function formatD20(result, mode) {
-	if (result.selected.length === 1) {
-		const selected = result.selected[0];
-		const rolls = result.original[0];
-		if (selected === 1 || selected === 20) return 'Крит. ' + selected;
-
-		let s = '';
-		if (rolls.length > 1) {
-			s += '(' + rolls.join(', ') + ') → ';
-		}
-		s += selected;
-		if (result.modifier !== 0) {
-			s += (result.modifier > 0 ? ' + ' : ' - ') + Math.abs(result.modifier);
-		}
-		s += ' = ' + result.total;
-		return s;
-	}
-
-	let lines = '';
-	let hasCritical = false;
-	for (let i = 0; i < result.original.length; i++) {
+function renderD20Result(result, mode) {
+	let html = '<div class=\'d20-result\'>';
+	for (let i = 0; i < result.selected.length; i++) {
 		const selected = result.selected[i];
 		const rolls = result.original[i];
-		if (i > 0) lines += '\n';
-		lines += (i + 1) + '. ';
+		let label = (i + 1) + '. ';
 		if (selected === 1 || selected === 20) {
-			lines += 'Крит. ' + selected;
-			hasCritical = true;
+			label += 'Крит. ' + selected;
 		} else if (rolls.length > 1) {
-			lines += '(' + rolls.join(', ') + ') → ' + selected;
+			label += '(' + rolls.join(', ') + ') → ' + selected;
 		} else {
-			lines += selected;
+			label += selected;
 		}
+		html += '<div class=\'d20-row\' data-value=\'' + selected + '\'>' + escapeHtml(label) + '</div>';
 	}
 	if (result.modifier !== 0) {
-		lines += '\n' + (result.modifier > 0 ? '+' + result.modifier : '-' + Math.abs(result.modifier));
+		html += '<div class=\'d20-total\'>Модификатор: ' + (result.modifier > 0 ? '+' : '-') + Math.abs(result.modifier) + '</div>';
 	}
-	lines += '\n= ' + result.total;
-	if (hasCritical) lines = 'Крит.\n' + lines;
-	return lines;
+	html += '<div class=\'d20-total\'>Сумма: ' + result.total + '</div>';
+	if (result.isCritical) {
+		html += '<div class=\'d20-total\'>Крит!</div>';
+	}
+	html += '</div>';
+	return html;
+}
+
+function onD20RowClick(e) {
+	const row = e.target.closest('.d20-row');
+	if (!row) return;
+	const dc = parseInt(row.dataset.value, 10);
+	if (isNaN(dc)) return;
+	const allRows = document.querySelectorAll('.d20-row');
+	for (const r of allRows) {
+		const val = parseInt(r.dataset.value, 10);
+		if (val >= dc) {
+			r.classList.add('hit');
+			r.classList.remove('miss');
+			r.textContent = 'Попадание: ' + val;
+		} else {
+			r.classList.add('miss');
+			r.classList.remove('hit');
+			r.textContent = 'Промах: ' + val;
+		}
+	}
 }
 
 function findDiceIndex(token) {
@@ -245,7 +249,7 @@ function doD20Roll() {
 	const count = getInt('d20count', 1);
 	const modifier = getInt('d20mod', 0);
 	const result = rollD20(count, modifier, mode);
-	openModal('Результат броска d20', '<pre>' + escapeHtml(formatD20(result, mode)) + '</pre>');
+	openModal('Результат броска d20', renderD20Result(result, mode));
 }
 
 function renderDamage() {
@@ -421,6 +425,7 @@ document.getElementById('content').addEventListener('click', (e) => {
 });
 
 document.getElementById('modal-back').addEventListener('click', closeModal);
+document.getElementById('modal-content').addEventListener('click', onD20RowClick);
 
 loadWeapons();
 showTab('d20');
