@@ -47,6 +47,15 @@ function onD20RowClick(e) {
 			r.textContent = 'Промах: ' + val;
 		}
 	}
+	updateD20Counter();
+}
+
+function updateD20Counter() {
+	const counter = document.getElementById('d20counter');
+	if (!counter) return;
+	const hits = document.querySelectorAll('.d20-row.hit').length;
+	const misses = document.querySelectorAll('.d20-row.miss').length;
+	counter.textContent = 'Попаданий: ' + hits + ' | Промахов: ' + misses;
 }
 
 function findDiceIndex(token) {
@@ -202,7 +211,7 @@ function doD20Roll() {
 	const mode = document.getElementById('d20modeValue').value;
 	const count = getInt('d20count', 1);
 	const modifier = getInt('d20mod', 0);
-	openModal('Результат броска d20', '<div class=\'d20-result\' id=\'d20result\'></div>');
+	openModal('Результат броска d20', '<div class=\'d20-result\' id=\'d20result\'></div><div class=\'d20-counter\' id=\'d20counter\'></div>');
 	runD20Sequence(count, mode, modifier);
 }
 
@@ -221,6 +230,7 @@ function runD20Sequence(count, mode, modifier) {
 				total.textContent = 'Сумма: ' + sum;
 				container.appendChild(total);
 			}
+			updateD20Counter();
 			return;
 		}
 		const rolls = [];
@@ -244,6 +254,7 @@ function runD20Sequence(count, mode, modifier) {
 		if (selected === 1) {
 			row.classList.add('miss');
 			container.appendChild(row);
+			updateD20Counter();
 			return;
 		}
 		container.appendChild(row);
