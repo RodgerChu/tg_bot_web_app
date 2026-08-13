@@ -6,6 +6,7 @@ const STORAGE_KEY = 'dnd_weapons_v1';
 let weapons = {};
 let currentTab = 'd20';
 let damageSelectedWeapons = [];
+let editingName = null;
 
 function loadWeapons() {
 	const value = localStorage.getItem(STORAGE_KEY);
@@ -361,25 +362,33 @@ function renderWeapons() {
 					'<div class=\'weapon-name\'>' + escapeHtml(name) + '</div>' +
 					'<div class=\'weapon-formula\'>' + escapeHtml(weapons[name]) + '</div>' +
 				'</div>' +
-				'<button class=\'danger\' data-name=\'' + escapeHtml(name) + '\'>Удалить</button>' +
+				'<div class=\'weapon-actions\'>' +
+					'<button class=\'secondary\' data-name=\'' + escapeHtml(name) + '\' data-action=\'edit\'>Изменить</button>' +
+					'<button class=\'danger\' data-name=\'' + escapeHtml(name) + '\' data-action=\'delete\'>Удалить</button>' +
+				'</div>' +
 			'</div>';
 		}
 	}
 
 	const content = document.getElementById('content');
+	const isEditing = editingName !== null;
+	const editName = isEditing ? escapeHtml(editingName) : '';
+	const editFormula = isEditing ? escapeHtml(weapons[editingName]) : '';
+	const title = isEditing ? 'Изменить оружие' : 'Добавить оружие';
+	const btnText = isEditing ? 'Сохранить' : 'Добавить';
 	content.innerHTML = '<div class=\'section\'>' +
 		'<div class=\'section-title\'>Мои оружия</div>' +
 		listHtml +
 	'</div>' +
 	'<div class=\'section\'>' +
-		'<div class=\'section-title\'>Добавить оружие</div>' +
+		'<div class=\'section-title\'>' + title + '</div>' +
 		'<div class=\'input-stack\'>' +
 			'<label class=\'input-label\'>Название</label>' +
-			'<input type=\'text\' id=\'weaponName\' placeholder=\'Например, Длинный меч\'>' +
+			'<input type=\'text\' id=\'weaponName\' placeholder=\'Например, Длинный меч\' value=\'' + editName + '\'>' +
 			'<label class=\'input-label\'>Урон</label>' +
-			'<input type=\'text\' id=\'weaponFormula\' placeholder=\'Например, 2d6+3\'>' +
+			'<input type=\'text\' id=\'weaponFormula\' placeholder=\'Например, 2d6+3\' value=\'' + editFormula + '\'>' +
 		'</div>' +
-		'<button onclick=\'addWeapon()\'>Добавить</button>' +
+		'<button id=\'addWeaponBtn\' onclick=\'addWeapon()\'>' + btnText + '</button>' +
 	'</div>';
 }
 
@@ -395,6 +404,10 @@ function addWeapon() {
 		showAlert('Не удалось распознать формулу урона.');
 		return;
 	}
+	if (editingName && editingName !== name) {
+		delete weapons[editingName];
+	}
+	editingName = null;
 	weapons[name] = formula;
 	saveWeapons();
 	document.getElementById('weaponName').value = '';
@@ -402,8 +415,16 @@ function addWeapon() {
 	renderWeapons();
 }
 
+function editWeapon(name) {
+	editingName = name;
+	renderWeapons();
+}
+
 function deleteWeapon(name) {
 	delete weapons[name];
+	if (editingName === name) {
+		editingName = null;
+	}
 	saveWeapons();
 	renderWeapons();
 }
@@ -432,8 +453,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 document.getElementById('content').addEventListener('click', (e) => {
-	const btn = e.target.closest('[data-name]');
-	if (btn) deleteWeapon(btn.dataset.name);
+	const btn = e.target.closest('button[data-action]');
+	if (!btn) return;
+	const name = btn.dataset.name;
+	if (btn.dataset.action === 'delete') deleteWeapon(name);
+	else if (btn.dataset.action === 'edit') editWeapon(name);
 });
 
 document.getElementById('modal-back').addEventListener('click', closeModal);

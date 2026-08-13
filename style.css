@@ -217,6 +217,12 @@ button.active {
 	overflow-wrap: anywhere;
 }
 
+.weapon-actions {
+	display: flex;
+	gap: 8px;
+	flex: 0;
+}
+
 .weapon-name {
 	font-weight: 600;
 }
