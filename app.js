@@ -7,6 +7,7 @@ const DAMAGE_TYPES = ['Кол.', 'Руб.', 'Дроб.', 'Некр.', 'Изл.',
 let weapons = {};
 let currentTab = 'd20';
 let damageEntries = [{ type: 'Без типа', formula: '' }];
+let damageWeaponGroups = [];
 let weaponFormEntries = [];
 let editingName = null;
 let d20ThresholdValues = [];
@@ -450,28 +451,71 @@ function renderDamage() {
 		'<div class=\'section-title\' style=\'margin-top: 12px;\'>Формулы урона</div>' +
 		'<div id=\'damageEntriesContainer\' class=\'entries-list\'></div>' +
 		'<button class=\'secondary\' data-action=\'add-row\' data-context=\'damage\' style=\'margin-top: 8px;\'>Добавить урон</button>' +
+		'<div id=\'damageWeaponsContainer\' class=\'weapons-groups\' style=\'margin-top: 12px;\'></div>' +
 		'<div class=\'row\' style=\'margin-top: 12px;\'>' +
 			'<button onclick=\'doDamageRoll()\'>Посчитать</button>' +
 			'<button class=\'secondary\' onclick=\'openWeaponSelect()\'>Выбрать оружие</button>' +
 		'</div>' +
 	'</div>';
 	renderEntries('damageEntriesContainer', damageEntries, 'damage');
+	renderDamageWeapons();
+}
+
+function renderDamageWeapons() {
+	const container = document.getElementById('damageWeaponsContainer');
+	if (!container) return;
+	if (damageWeaponGroups.length === 0) {
+		container.innerHTML = '';
+		return;
+	}
+	let html = '<div class=\'section-title\'>Оружие</div>';
+	for (let i = 0; i < damageWeaponGroups.length; i++) {
+		const group = damageWeaponGroups[i];
+		let entriesHtml = '';
+		for (const e of group.entries) {
+			entriesHtml += '<div class=\'weapon-group-entry\'>' +
+				'<span class=\'weapon-group-type\'>' + escapeHtml(e.type) + '</span>' +
+				'<span class=\'weapon-group-formula\'>' + escapeHtml(e.formula) + '</span>' +
+			'</div>';
+		}
+		html += '<div class=\'weapon-group\' data-index=\'' + i + '\'>' +
+			'<div class=\'weapon-group-header\'>' +
+				'<span class=\'weapon-group-name\'>' + escapeHtml(group.name) + '</span>' +
+				'<button class=\'danger\' data-action=\'remove-weapon-group\' data-index=\'' + i + '\'>Удалить</button>' +
+			'</div>' +
+			'<div class=\'weapon-group-entries\'>' + entriesHtml + '</div>' +
+		'</div>';
+	}
+	container.innerHTML = html;
+}
+
+function removeWeaponGroup(index) {
+	damageWeaponGroups.splice(index, 1);
+	renderDamage();
 }
 
 function doDamageRoll() {
 	const attacks = getInt('attacks', 1);
-	damageEntries = readFormEntries('damageEntriesContainer');
+	const manualEntries = readFormEntries('damageEntriesContainer');
+	damageEntries = manualEntries;
+
+	const allEntries = manualEntries.slice();
+	for (const group of damageWeaponGroups) {
+		for (const e of group.entries) {
+			allEntries.push({ type: e.type, formula: e.formula });
+		}
+	}
 
 	let hasFormula = false;
-	for (const e of damageEntries) {
+	for (const e of allEntries) {
 		if (e.formula) hasFormula = true;
 	}
 	if (!hasFormula) {
-		showAlert('Введи хотя бы одну формулу урона.');
+		showAlert('Введи хотя бы одну формулу урона или выбери оружие.');
 		return;
 	}
 
-	for (const e of damageEntries) {
+	for (const e of allEntries) {
 		if (!e.formula) continue;
 		const terms = parseDamage(e.formula);
 		if (terms.length === 0) {
@@ -480,7 +524,7 @@ function doDamageRoll() {
 		}
 	}
 
-	const result = rollDamageSet(damageEntries, attacks);
+	const result = rollDamageSet(allEntries, attacks);
 	openModal('Результат урона', '<pre>' + escapeHtml(formatDamageSet(result, attacks)) + '</pre>');
 }
 
@@ -565,9 +609,7 @@ function addSelectedWeapons() {
 	}
 	for (const name of selected) {
 		if (weapons[name]) {
-			for (const e of weapons[name]) {
-				damageEntries.push({ type: e.type, formula: e.formula });
-			}
+			damageWeaponGroups.push({ name, entries: weapons[name].map(e => ({...e})) });
 		}
 	}
 	closeModal();
@@ -734,6 +776,7 @@ document.getElementById('content').addEventListener('click', (e) => {
 	else if (action === 'edit') editWeapon(name);
 	else if (action === 'add-row') addEntry(btn.dataset.context);
 	else if (action === 'remove-row') handleRemoveRowClick(btn);
+	else if (action === 'remove-weapon-group') removeWeaponGroup(parseInt(btn.dataset.index, 10));
 });
 
 document.getElementById('modal-back').addEventListener('click', closeModal);

@@ -438,3 +438,57 @@ button.active {
 	background: #e74c3c;
 	color: #fff;
 }
+
+.weapons-groups .section-title {
+	margin-bottom: 4px;
+}
+
+.weapon-group {
+	margin-bottom: 10px;
+	padding-left: 12px;
+}
+
+.weapon-group-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+.weapon-group-name {
+	font-weight: bold;
+	font-size: 14px;
+}
+
+.weapon-group-header button {
+	padding: 6px 10px;
+	font-size: 12px;
+}
+
+.weapon-group-entries {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding-left: 12px;
+}
+
+.weapon-group-entry {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 14px;
+}
+
+.weapon-group-type {
+	flex: 0 0 35%;
+	color: var(--hint);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.weapon-group-formula {
+	flex: 1;
+	font-weight: bold;
+}
