@@ -142,7 +142,8 @@ function rollDamage(formula, attacks) {
 		for (const t of terms) {
 			if (t.sides === 0) {
 				const constantTotal = t.sign * t.constant;
-				termRolls.push({ term: t.constant.toString(), rolls: [], termTotal: constantTotal });
+				const termLabel = (t.sign > 0 ? '+' : '-') + t.constant;
+				termRolls.push({ term: termLabel, rolls: [], termTotal: constantTotal });
 				perAttack += constantTotal;
 			} else {
 				const rolls = [];
