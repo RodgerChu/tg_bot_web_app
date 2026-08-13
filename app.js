@@ -47,25 +47,6 @@ function onD20RowClick(e) {
 	applyD20Threshold(dc);
 }
 
-function applyD20Threshold(dc) {
-	const allRows = document.querySelectorAll('.d20-row');
-	for (const r of allRows) {
-		if (r.dataset.value === '1') continue;
-		const val = parseInt(r.dataset.value, 10);
-		if (val >= dc) {
-			r.classList.add('hit');
-			r.classList.remove('miss');
-			r.textContent = 'Попадание: ' + val;
-		} else {
-			r.classList.add('miss');
-			r.classList.remove('hit');
-			r.textContent = 'Промах: ' + val;
-		}
-	}
-	updateD20ThresholdDisplay(dc);
-	updateD20Counter();
-}
-
 function updateD20ThresholdDisplay(dc) {
 	const control = document.getElementById('d20control');
 	if (!control) return;
@@ -292,26 +273,46 @@ function renderD20Control(rows) {
 	}
 
 	control.innerHTML = '<div class=\'d20-control\'>' +
-		'<button class=\'d20-minus\' data-action=\'d20-minus\' ' + (d20ThresholdIndex >= unique.length - 1 ? 'disabled' : '') + '>−</button>' +
+		'<button class=\'d20-minus\' data-action=\'d20-minus\'>−</button>' +
 		'<div class=\'d20-threshold\'>' + unique[0] + '</div>' +
-		'<button class=\'d20-plus\' data-action=\'d20-plus\' ' + (d20ThresholdIndex <= 0 ? 'disabled' : '') + '>+</button>' +
+		'<button class=\'d20-plus\' data-action=\'d20-plus\'>+</button>' +
 	'</div>';
+	updateD20ControlButtons();
 }
 
-function stepD20Threshold(direction) {
-	if (!d20ThresholdValues.length) return;
-	const newIndex = d20ThresholdIndex + direction;
-	if (newIndex < 0 || newIndex >= d20ThresholdValues.length) return;
-	d20ThresholdIndex = newIndex;
-	const dc = d20ThresholdValues[d20ThresholdIndex];
-	applyD20Threshold(dc);
-
+function updateD20ControlButtons() {
 	const control = document.getElementById('d20control');
 	if (!control) return;
 	const minus = control.querySelector('.d20-minus');
-	const plus = control.querySelector('.d20-plus');
 	if (minus) minus.disabled = d20ThresholdIndex >= d20ThresholdValues.length - 1;
-	if (plus) plus.disabled = d20ThresholdIndex <= 0;
+}
+
+function selectNextD20Threshold() {
+	if (!d20ThresholdValues.length) return;
+	if (d20ThresholdIndex >= d20ThresholdValues.length - 1) return;
+	d20ThresholdIndex++;
+	updateD20ThresholdDisplay();
+	updateD20ControlButtons();
+}
+
+function applyD20Threshold(dc) {
+	const allRows = document.querySelectorAll('.d20-row');
+	for (const r of allRows) {
+		if (r.dataset.value === '1') continue;
+		const val = parseInt(r.dataset.value, 10);
+		if (val >= dc) {
+			r.classList.add('hit');
+			r.classList.remove('miss');
+			r.textContent = 'Попадание: ' + val;
+		} else {
+			r.classList.add('miss');
+			r.classList.remove('hit');
+			r.textContent = 'Промах: ' + val;
+		}
+	}
+	updateD20ThresholdDisplay(dc);
+	updateD20ControlButtons();
+	updateD20Counter();
 }
 
 function escapeHtml(text) {
@@ -665,8 +666,8 @@ document.getElementById('modal-content').addEventListener('click', (e) => {
 	const btn = e.target.closest('button[data-action]');
 	if (!btn) return;
 	if (btn.dataset.action === 'add-weapons') addSelectedWeapons();
-	else if (btn.dataset.action === 'd20-minus') stepD20Threshold(1);
-	else if (btn.dataset.action === 'd20-plus') stepD20Threshold(-1);
+	else if (btn.dataset.action === 'd20-minus') selectNextD20Threshold();
+	else if (btn.dataset.action === 'd20-plus') applyD20Threshold(d20ThresholdValues[d20ThresholdIndex]);
 });
 
 loadWeapons();
