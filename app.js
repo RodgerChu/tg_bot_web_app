@@ -161,6 +161,17 @@ function getValue(id) {
 	return document.getElementById(id).value.trim();
 }
 
+function adjustCount(id, delta) {
+	const input = document.getElementById(id);
+	if (!input) return;
+	let v = parseInt(input.value, 10) || 0;
+	v += delta;
+	const min = parseInt(input.min, 10);
+	if (!isNaN(min) && v < min) v = min;
+	if (v < 0) v = 0;
+	input.value = v;
+}
+
 function setActiveMode(value) {
 	document.querySelectorAll('.mode button').forEach(b => {
 		b.classList.toggle('active', b.dataset.mode === value);
@@ -181,7 +192,11 @@ function renderD20() {
 		'<div class=\'row\'>' +
 			'<div class=\'input-col\'>' +
 				'<label class=\'input-label\'>Кол-во бросков</label>' +
-				'<input type=\'number\' id=\'d20count\' value=\'1\' min=\'1\'>' +
+				'<div class=\'spin-row\'>' +
+					'<button class=\'secondary\' onclick=\'adjustCount("d20count", -1)\'>−</button>' +
+					'<input type=\'number\' id=\'d20count\' value=\'1\' min=\'1\'>' +
+					'<button class=\'secondary\' onclick=\'adjustCount("d20count", 1)\'>+</button>' +
+				'</div>' +
 			'</div>' +
 			'<div class=\'input-col\'>' +
 				'<label class=\'input-label\'>Модификатор</label>' +
@@ -365,7 +380,11 @@ function renderDamage() {
 		'<div class=\'section-title\'>Урон атаки</div>' +
 		'<div class=\'input-stack\'>' +
 			'<label class=\'input-label\'>Кол-во атак</label>' +
-			'<input type=\'number\' id=\'attacks\' value=\'1\' min=\'1\'>' +
+			'<div class=\'spin-row\'>' +
+				'<button class=\'secondary\' onclick=\'adjustCount("attacks", -1)\'>−</button>' +
+				'<input type=\'number\' id=\'attacks\' value=\'1\' min=\'1\'>' +
+				'<button class=\'secondary\' onclick=\'adjustCount("attacks", 1)\'>+</button>' +
+			'</div>' +
 		'</div>' +
 		'<div class=\'section-title\' style=\'margin-top: 12px;\'>Формулы урона</div>' +
 		'<div id=\'damageEntriesContainer\' class=\'entries-list\'></div>' +

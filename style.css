@@ -296,6 +296,28 @@ button.active {
 	margin-bottom: 2px;
 }
 
+.spin-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.spin-row input[type='number'] {
+	flex: 1;
+	min-width: 0;
+	text-align: center;
+	padding-left: 4px;
+	padding-right: 4px;
+}
+
+.spin-row button {
+	flex: 0 0 32px;
+	padding: 0;
+	font-size: 18px;
+	line-height: 1;
+	height: 100%;
+}
+
 .d20-result {
 	display: flex;
 	flex-direction: column;
