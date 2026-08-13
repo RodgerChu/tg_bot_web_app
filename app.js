@@ -28,60 +28,14 @@ function rollDie(sides) {
 	return Math.floor(Math.random() * sides) + 1;
 }
 
-function rollD20(count, modifier, mode) {
-	const perDie = mode === 'advantage' || mode === 'disadvantage' ? 2 : mode === 'elven' ? 3 : 1;
-	const original = [];
-	const selected = [];
-	let isCritical = false;
-
-	for (let i = 0; i < count; i++) {
-		const rolls = [];
-		for (let j = 0; j < perDie; j++) {
-			rolls.push(rollDie(20));
-		}
-		original.push(rolls);
-		const value = mode === 'disadvantage' ? Math.min(...rolls) : Math.max(...rolls);
-		selected.push(value);
-		if (value === 1 || value === 20) isCritical = true;
-	}
-
-	const total = selected.reduce((a, b) => a + b, 0) + modifier;
-	return { modifier, original, selected, total, isCritical };
-}
-
-function renderD20Result(result, mode) {
-	let html = '<div class=\'d20-result\'>';
-	for (let i = 0; i < result.selected.length; i++) {
-		const selected = result.selected[i];
-		const rolls = result.original[i];
-		let label = (i + 1) + '. ';
-		if (selected === 1 || selected === 20) {
-			label += 'Крит. ' + selected;
-		} else if (rolls.length > 1) {
-			label += '(' + rolls.join(', ') + ') → ' + selected;
-		} else {
-			label += selected;
-		}
-		html += '<div class=\'d20-row\' data-value=\'' + selected + '\'>' + escapeHtml(label) + '</div>';
-	}
-	if (result.modifier !== 0) {
-		html += '<div class=\'d20-total\'>Модификатор: ' + (result.modifier > 0 ? '+' : '-') + Math.abs(result.modifier) + '</div>';
-	}
-	html += '<div class=\'d20-total\'>Сумма: ' + result.total + '</div>';
-	if (result.isCritical) {
-		html += '<div class=\'d20-total\'>Крит!</div>';
-	}
-	html += '</div>';
-	return html;
-}
-
 function onD20RowClick(e) {
 	const row = e.target.closest('.d20-row');
-	if (!row) return;
+	if (!row || row.dataset.value === '1') return;
 	const dc = parseInt(row.dataset.value, 10);
 	if (isNaN(dc)) return;
 	const allRows = document.querySelectorAll('.d20-row');
 	for (const r of allRows) {
+		if (r.dataset.value === '1') continue;
 		const val = parseInt(r.dataset.value, 10);
 		if (val >= dc) {
 			r.classList.add('hit');
@@ -248,8 +202,55 @@ function doD20Roll() {
 	const mode = document.getElementById('d20modeValue').value;
 	const count = getInt('d20count', 1);
 	const modifier = getInt('d20mod', 0);
-	const result = rollD20(count, modifier, mode);
-	openModal('Результат броска d20', renderD20Result(result, mode));
+	openModal('Результат броска d20', '<div class=\'d20-result\' id=\'d20result\'></div>');
+	runD20Sequence(count, mode, modifier);
+}
+
+function runD20Sequence(count, mode, modifier) {
+	const container = document.getElementById('d20result');
+	if (!container) return;
+	const perDie = mode === 'advantage' || mode === 'disadvantage' ? 2 : mode === 'elven' ? 3 : 1;
+	let i = 0;
+	const rows = [];
+	const next = () => {
+		if (i >= count) {
+			if (modifier !== 0) {
+				const sum = rows.reduce((a, v) => a + v, 0) + modifier;
+				const total = document.createElement('div');
+				total.className = 'd20-total';
+				total.textContent = 'Сумма: ' + sum;
+				container.appendChild(total);
+			}
+			return;
+		}
+		const rolls = [];
+		for (let j = 0; j < perDie; j++) {
+			rolls.push(rollDie(20));
+		}
+		const selected = mode === 'disadvantage' ? Math.min(...rolls) : Math.max(...rolls);
+		rows.push(selected);
+		let label = (i + 1) + '. ';
+		if (selected === 1 || selected === 20) {
+			label += 'Крит. ' + selected;
+		} else if (rolls.length > 1) {
+			label += '(' + rolls.join(', ') + ') → ' + selected;
+		} else {
+			label += selected;
+		}
+		const row = document.createElement('div');
+		row.className = 'd20-row';
+		row.dataset.value = selected;
+		row.textContent = label;
+		if (selected === 1) {
+			row.classList.add('miss');
+			container.appendChild(row);
+			return;
+		}
+		container.appendChild(row);
+		i++;
+		setTimeout(next, 150);
+	};
+	next();
 }
 
 function renderDamage() {
