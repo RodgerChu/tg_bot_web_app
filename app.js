@@ -9,6 +9,7 @@ let currentTab = 'd20';
 let damageEntries = [{ type: 'Без типа', formula: '' }];
 let damageWeaponGroups = [];
 let weaponFormEntries = [];
+let weaponFormOnHit = '';
 let editingName = null;
 let d20ThresholdValues = [];
 let d20ThresholdIndex = 0;
@@ -58,9 +59,16 @@ async function loadWeapons() {
 		weapons = JSON.parse(value);
 	}
 	for (const name in weapons) {
-		if (typeof weapons[name] === 'string') {
-			weapons[name] = [{ type: 'Без типа', formula: weapons[name] }];
+		const w = weapons[name];
+		if (typeof w === 'string') {
+			weapons[name] = { onHit: '', entries: [{ type: 'Без типа', formula: w }] };
+		} else if (Array.isArray(w)) {
+			weapons[name] = { onHit: '', entries: w };
+		} else if (typeof w === 'object' && w !== null && !w.entries) {
+			weapons[name] = { onHit: w.onHit || '', entries: w.entries || [] };
 		}
+		if (!weapons[name].onHit) weapons[name].onHit = '';
+		if (!weapons[name].entries) weapons[name].entries = [];
 	}
 }
 
@@ -525,7 +533,17 @@ function doDamageRoll() {
 	}
 
 	const result = rollDamageSet(allEntries, attacks);
-	openModal('Результат урона', '<pre>' + escapeHtml(formatDamageSet(result, attacks)) + '</pre>');
+	let onHitText = '';
+	const onHitEffects = [];
+	for (const group of damageWeaponGroups) {
+		if (group.onHit && group.onHit.trim()) {
+			onHitEffects.push(group.name + ': ' + group.onHit.trim());
+		}
+	}
+	if (onHitEffects.length > 0) {
+		onHitText = '\n\nНе забудьте:\n' + onHitEffects.map(e => '- ' + e).join('\n');
+	}
+	openModal('Результат урона', '<pre>' + escapeHtml(formatDamageSet(result, attacks) + onHitText) + '</pre>');
 }
 
 function rollDamageSet(entries, attacks) {
@@ -591,7 +609,7 @@ function openWeaponSelect() {
 
 	let html = '<div class=\'hint\'>Отметь оружие и нажми "Добавить":</div>';
 	for (const name of names) {
-		const entriesText = weapons[name].map(e => escapeHtml(e.type) + ': ' + escapeHtml(e.formula)).join(', ');
+		const entriesText = weapons[name].entries.map(e => escapeHtml(e.type) + ': ' + escapeHtml(e.formula)).join(', ');
 		html += '<label class=\'modal-check\'>' +
 			'<input type=\'checkbox\' value=\'' + escapeHtml(name) + '\' name=\'sel_weapon\'>' +
 			'<span>' + escapeHtml(name) + ' (' + entriesText + ')</span>' +
@@ -609,7 +627,7 @@ function addSelectedWeapons() {
 	}
 	for (const name of selected) {
 		if (weapons[name]) {
-			damageWeaponGroups.push({ name, entries: weapons[name].map(e => ({...e})) });
+			damageWeaponGroups.push({ name, onHit: weapons[name].onHit || '', entries: weapons[name].entries.map(e => ({...e})) });
 		}
 	}
 	closeModal();
@@ -623,11 +641,14 @@ function renderWeapons() {
 		listHtml = '<div class=\'empty\'>Оружие не добавлено</div>';
 	} else {
 		for (const name of names) {
-			const entriesText = weapons[name].map(e => escapeHtml(e.type) + ': ' + escapeHtml(e.formula)).join(', ');
+			const w = weapons[name];
+			const entriesText = w.entries.map(e => escapeHtml(e.type) + ': ' + escapeHtml(e.formula)).join(', ');
+			const onHitText = w.onHit ? 'On hit: ' + escapeHtml(w.onHit) : '';
 			listHtml += '<div class=\'weapon-item\'>' +
 				'<div class=\'weapon-item-info\'>' +
 					'<div class=\'weapon-name\'>' + escapeHtml(name) + '</div>' +
 					'<div class=\'weapon-formula\'>' + entriesText + '</div>' +
+					(onHitText ? '<div class=\'weapon-onhit\'>' + onHitText + '</div>' : '') +
 				'</div>' +
 				'<div class=\'weapon-actions\'>' +
 					'<button class=\'secondary\' data-name=\'' + escapeHtml(name) + '\' data-action=\'edit\'>Изменить</button>' +
@@ -654,11 +675,16 @@ function renderWeapons() {
 		'<div class=\'section-title\' style=\'margin-top: 12px;\'>Формулы урона</div>' +
 		'<div id=\'weaponEntriesContainer\' class=\'entries-list\'></div>' +
 		'<button class=\'secondary\' data-action=\'add-row\' data-context=\'weapon\' style=\'margin-top: 8px;\'>Добавить урон</button>' +
+		'<div class=\'input-stack\' style=\'margin-top: 12px;\'>' +
+			'<label class=\'input-label\'>Эффект при ударе (On hit)</label>' +
+			'<textarea id=\'weaponOnHit\' rows=\'3\' placeholder=\'Например, цель должна пройти спас-бросок Телосложения или упасть\'>' + escapeHtml(weaponFormOnHit) + '</textarea>' +
+		'</div>' +
 		'<button id=\'addWeaponBtn\' style=\'margin-top: 12px;\' onclick=\'addWeapon()\'>' + btnText + '</button>' +
 	'</div>';
 
 	if (isEditing) {
-		weaponFormEntries = weapons[editingName].map(e => ({...e}));
+		weaponFormEntries = weapons[editingName].entries.map(e => ({...e}));
+		weaponFormOnHit = weapons[editingName].onHit || '';
 	} else {
 		if (weaponFormEntries.length === 0) weaponFormEntries = [{ type: 'Без типа', formula: '' }];
 	}
@@ -690,20 +716,24 @@ function addWeapon() {
 		}
 	}
 
+	weaponFormOnHit = getValue('weaponOnHit');
+
 	if (editingName && editingName !== name) {
 		delete weapons[editingName];
 	}
 
 	editingName = null;
-	weapons[name] = weaponFormEntries;
+	weapons[name] = { onHit: weaponFormOnHit, entries: weaponFormEntries };
 	weaponFormEntries = [];
+	weaponFormOnHit = '';
 	saveWeapons();
 	renderWeapons();
 }
 
 function editWeapon(name) {
 	editingName = name;
-	weaponFormEntries = weapons[name].map(e => ({...e}));
+	weaponFormEntries = weapons[name].entries.map(e => ({...e}));
+	weaponFormOnHit = weapons[name].onHit || '';
 	renderWeapons();
 }
 
@@ -712,6 +742,7 @@ function deleteWeapon(name) {
 	if (editingName === name) {
 		editingName = null;
 		weaponFormEntries = [];
+		weaponFormOnHit = '';
 	}
 	saveWeapons();
 	renderWeapons();
@@ -719,6 +750,7 @@ function deleteWeapon(name) {
 
 function addEntry(context) {
 	const containerId = context === 'damage' ? 'damageEntriesContainer' : 'weaponEntriesContainer';
+	if (context === 'weapon') weaponFormOnHit = getValue('weaponOnHit');
 	const entries = readFormEntries(containerId);
 	entries.push({ type: 'Без типа', formula: '' });
 	if (context === 'damage') damageEntries = entries;
@@ -728,6 +760,7 @@ function addEntry(context) {
 
 function removeEntry(context, index) {
 	const containerId = context === 'damage' ? 'damageEntriesContainer' : 'weaponEntriesContainer';
+	if (context === 'weapon') weaponFormOnHit = getValue('weaponOnHit');
 	const entries = readFormEntries(containerId);
 	entries.splice(index, 1);
 	if (entries.length === 0) entries.push({ type: 'Без типа', formula: '' });

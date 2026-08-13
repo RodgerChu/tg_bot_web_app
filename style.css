@@ -58,7 +58,7 @@ h1 {
 	flex: 1;
 }
 
-input, select {
+input, select, textarea {
 	width: 100%;
 	min-width: 0;
 	padding: 10px;
@@ -67,6 +67,18 @@ input, select {
 	font-size: 14px;
 	background: var(--bg);
 	color: var(--text);
+	font-family: inherit;
+}
+
+textarea {
+	resize: none;
+}
+
+.weapon-onhit {
+	font-size: 12px;
+	color: var(--hint);
+	margin-top: 4px;
+	font-style: italic;
 }
 
 input[type='checkbox'], input[type='radio'] {
