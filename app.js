@@ -3,9 +3,11 @@ tg.ready();
 tg.expand();
 
 const STORAGE_KEY = 'dnd_weapons_v1';
+const DAMAGE_TYPES = ['Кол.', 'Руб.', 'Дроб.', 'Некр.', 'Изл.', 'Кисл.', 'Сил.поле', 'Огонь', 'Вода', 'Лед', 'Холод', 'Молния', 'Гром', 'Яд', 'Псих', 'Свет', 'Тьма', 'Чист', 'Без типа'];
 let weapons = {};
 let currentTab = 'd20';
-let damageSelectedWeapons = [];
+let damageEntries = [{ type: 'Без типа', formula: '' }];
+let weaponFormEntries = [];
 let editingName = null;
 
 function loadWeapons() {
@@ -14,6 +16,12 @@ function loadWeapons() {
 		try { weapons = JSON.parse(value); } catch { weapons = {}; }
 	} else {
 		weapons = {};
+	}
+
+	for (const name in weapons) {
+		if (typeof weapons[name] === 'string') {
+			weapons[name] = [{ type: 'Без типа', formula: weapons[name] }];
+		}
 	}
 }
 
@@ -134,25 +142,6 @@ function rollDamage(formula, attacks) {
 	return { attacks: attackResults, total };
 }
 
-function formatDamage(result, formula, attacks) {
-	let s = 'Формула: ' + formula + '\n';
-	s += 'Атак: ' + attacks + '\n\n';
-	for (let i = 0; i < result.attacks.length; i++) {
-		const attack = result.attacks[i];
-		s += 'Атака ' + (i + 1) + ':\n';
-		for (const term of attack.terms) {
-			if (term.rolls.length === 0) {
-				s += '  ' + term.term + ': ' + term.termTotal + '\n';
-			} else {
-				s += '  ' + term.term + ': (' + term.rolls.join(', ') + ') = ' + term.termTotal + '\n';
-			}
-		}
-		s += '  Итого: ' + attack.perAttackTotal + '\n';
-	}
-	s += '\nВсего: ' + result.total;
-	return s;
-}
-
 function openModal(title, html) {
 	document.getElementById('modal-title').textContent = title;
 	document.getElementById('modal-content').innerHTML = html;
@@ -265,53 +254,147 @@ function runD20Sequence(count, mode, modifier) {
 	next();
 }
 
+function escapeHtml(text) {
+	if (text === null || text === undefined) return '';
+	return String(text)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#039;');
+}
+
+function renderTypeOptions(selected) {
+	let html = '';
+	for (const t of DAMAGE_TYPES) {
+		html += '<option value=\'' + escapeHtml(t) + '\'' + (t === selected ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+	}
+	return html;
+}
+
+function readFormEntries(containerId) {
+	const rows = document.querySelectorAll('#' + containerId + ' .form-row');
+	const entries = [];
+	for (const row of rows) {
+		const type = row.querySelector('.damage-type').value;
+		const formula = row.querySelector('.damage-formula').value.trim();
+		if (type) entries.push({ type, formula });
+	}
+	return entries;
+}
+
+function renderEntries(containerId, entries, context) {
+	const container = document.getElementById(containerId);
+	if (!container) return;
+	let html = '';
+	for (let i = 0; i < entries.length; i++) {
+		const e = entries[i];
+		html += '<div class=\'form-row\' data-context=\'' + context + '\' data-index=\'' + i + '\'>' +
+			'<select class=\'damage-type\'>' + renderTypeOptions(e.type) + '</select>' +
+			'<input type=\'text\' class=\'damage-formula\' placeholder=\'2d6+3\' value=\'' + escapeHtml(e.formula) + '\'>' +
+			'<button class=\'danger remove-row\' data-action=\'remove-row\' data-context=\'' + context + '\' data-index=\'' + i + '\' data-default=\'✕\'>✕</button>' +
+		'</div>';
+	}
+	container.innerHTML = html;
+}
+
 function renderDamage() {
 	const content = document.getElementById('content');
 	content.innerHTML = '<div class=\'section\'>' +
 		'<div class=\'section-title\'>Урон атаки</div>' +
-		'<div class=\'row\'>' +
-			'<div class=\'input-col\'>' +
-				'<label class=\'input-label\'>Кол-во атак</label>' +
-				'<input type=\'number\' id=\'attacks\' value=\'1\' min=\'1\'>' +
-			'</div>' +
-			'<div class=\'input-col\'>' +
-				'<label class=\'input-label\'>Урон атаки</label>' +
-				'<input type=\'text\' id=\'damage\' placeholder=\'2d6+3\'>' +
-			'</div>' +
+		'<div class=\'input-stack\'>' +
+			'<label class=\'input-label\'>Кол-во атак</label>' +
+			'<input type=\'number\' id=\'attacks\' value=\'1\' min=\'1\'>' +
 		'</div>' +
-		'<div class=\'hint\'>Можно: 2d6+1d4+3-1. Разделитель d/д.</div>' +
-		'<div class=\'row\'>' +
+		'<div class=\'section-title\' style=\'margin-top: 12px;\'>Формулы урона</div>' +
+		'<div id=\'damageEntriesContainer\' class=\'entries-list\'></div>' +
+		'<button class=\'secondary\' data-action=\'add-row\' data-context=\'damage\' style=\'margin-top: 8px;\'>Добавить урон</button>' +
+		'<div class=\'row\' style=\'margin-top: 12px;\'>' +
 			'<button onclick=\'doDamageRoll()\'>Посчитать</button>' +
 			'<button class=\'secondary\' onclick=\'openWeaponSelect()\'>Выбрать оружие</button>' +
 		'</div>' +
 	'</div>';
+	renderEntries('damageEntriesContainer', damageEntries, 'damage');
 }
 
 function doDamageRoll() {
 	const attacks = getInt('attacks', 1);
-	const formula = getValue('damage');
-	if (!formula) {
-		showAlert('Введи формулу урона.');
+	damageEntries = readFormEntries('damageEntriesContainer');
+
+	let hasFormula = false;
+	for (const e of damageEntries) {
+		if (e.formula) hasFormula = true;
+	}
+	if (!hasFormula) {
+		showAlert('Введи хотя бы одну формулу урона.');
 		return;
 	}
-	const terms = parseDamage(formula);
-	if (terms.length === 0) {
-		showAlert('Не удалось распознать формулу.');
-		return;
+
+	for (const e of damageEntries) {
+		if (!e.formula) continue;
+		const terms = parseDamage(e.formula);
+		if (terms.length === 0) {
+			showAlert('Не удалось распознать формулу: ' + e.formula);
+			return;
+		}
 	}
-	const result = rollDamage(formula, attacks);
-	openModal('Результат урона', '<pre>' + escapeHtml(formatDamage(result, formula, attacks)) + '</pre>');
+
+	const result = rollDamageSet(damageEntries, attacks);
+	openModal('Результат урона', '<pre>' + escapeHtml(formatDamageSet(result, attacks)) + '</pre>');
 }
 
-function buildCombinedFormula(manual, selectedNames) {
-	let parts = [];
-	const manualTrim = manual.trim();
-	if (manualTrim) parts.push(manualTrim);
-	for (const name of selectedNames) {
-		const formula = weapons[name];
-		if (formula) parts.push(formula);
+function rollDamageSet(entries, attacks) {
+	const entryResults = [];
+	for (const e of entries) {
+		entryResults.push({ type: e.type, result: rollDamage(e.formula, attacks) });
 	}
-	return parts.join(' + ');
+
+	const typeSet = new Set();
+	const typeTotals = {};
+	const attackResults = [];
+
+	for (let a = 0; a < attacks; a++) {
+		const byType = {};
+		let attackTotal = 0;
+
+		for (const er of entryResults) {
+			const value = er.result.attacks[a].perAttackTotal;
+			byType[er.type] = (byType[er.type] || 0) + value;
+			attackTotal += value;
+		}
+
+		attackResults.push({ byType, total: attackTotal });
+		for (const t in byType) {
+			typeSet.add(t);
+			typeTotals[t] = (typeTotals[t] || 0) + byType[t];
+		}
+	}
+
+	const typeOrder = Array.from(typeSet).sort((a, b) => DAMAGE_TYPES.indexOf(a) - DAMAGE_TYPES.indexOf(b));
+	let total = 0;
+	for (const t of typeOrder) total += typeTotals[t];
+
+	return { attacks: attackResults, typeTotals, typeOrder, total };
+}
+
+function formatDamageSet(result, attacks) {
+	let s = 'Атак: ' + attacks + '\n\n';
+	for (let i = 0; i < result.attacks.length; i++) {
+		const attack = result.attacks[i];
+		s += 'Атака ' + (i + 1) + ':\n';
+		for (const type of result.typeOrder) {
+			if (attack.byType[type] !== undefined) {
+				s += '  ' + type + ': ' + attack.byType[type] + '\n';
+			}
+		}
+		s += '  Итого: ' + attack.total + '\n';
+	}
+	s += '\nВсего:\n';
+	for (const type of result.typeOrder) {
+		s += '  ' + type + ': ' + result.typeTotals[type] + '\n';
+	}
+	s += '  Общий итог: ' + result.total;
+	return s;
 }
 
 function openWeaponSelect() {
@@ -321,33 +404,33 @@ function openWeaponSelect() {
 		return;
 	}
 
-	let html = '<div class=\'hint\'>Отметь оружие и нажми "Подсчитать":</div>';
+	let html = '<div class=\'hint\'>Отметь оружие и нажми "Добавить":</div>';
 	for (const name of names) {
+		const entriesText = weapons[name].map(e => escapeHtml(e.type) + ': ' + escapeHtml(e.formula)).join(', ');
 		html += '<label class=\'modal-check\'>' +
 			'<input type=\'checkbox\' value=\'' + escapeHtml(name) + '\' name=\'sel_weapon\'>' +
-			'<span>' + escapeHtml(name) + ' (' + escapeHtml(weapons[name]) + ')</span>' +
+			'<span>' + escapeHtml(name) + ' (' + entriesText + ')</span>' +
 		'</label>';
 	}
-	html += '<button onclick=\'calculateWithWeapons()\'>Подсчитать</button>';
+	html += '<button data-action=\'add-weapons\'>Добавить</button>';
 	openModal('Выбор оружия', html);
 }
 
-function calculateWithWeapons() {
-	const attacks = getInt('attacks', 1);
-	const manual = getValue('damage');
+function addSelectedWeapons() {
 	const selected = Array.from(document.querySelectorAll('input[name=sel_weapon]:checked')).map(i => i.value);
-	const formula = buildCombinedFormula(manual, selected);
-	if (!formula) {
-		showAlert('Выбери оружие или введи формулу.');
+	if (selected.length === 0) {
+		showAlert('Выбери хотя бы одно оружие.');
 		return;
 	}
-	const terms = parseDamage(formula);
-	if (terms.length === 0) {
-		showAlert('Не удалось распознать формулу.');
-		return;
+	for (const name of selected) {
+		if (weapons[name]) {
+			for (const e of weapons[name]) {
+				damageEntries.push({ type: e.type, formula: e.formula });
+			}
+		}
 	}
-	const result = rollDamage(formula, attacks);
-	openModal('Результат урона', '<pre>' + escapeHtml(formatDamage(result, formula, attacks)) + '</pre>');
+	closeModal();
+	showTab('damage');
 }
 
 function renderWeapons() {
@@ -357,10 +440,11 @@ function renderWeapons() {
 		listHtml = '<div class=\'empty\'>Оружие не добавлено</div>';
 	} else {
 		for (const name of names) {
+			const entriesText = weapons[name].map(e => escapeHtml(e.type) + ': ' + escapeHtml(e.formula)).join(', ');
 			listHtml += '<div class=\'weapon-item\'>' +
 				'<div class=\'weapon-item-info\'>' +
 					'<div class=\'weapon-name\'>' + escapeHtml(name) + '</div>' +
-					'<div class=\'weapon-formula\'>' + escapeHtml(weapons[name]) + '</div>' +
+					'<div class=\'weapon-formula\'>' + entriesText + '</div>' +
 				'</div>' +
 				'<div class=\'weapon-actions\'>' +
 					'<button class=\'secondary\' data-name=\'' + escapeHtml(name) + '\' data-action=\'edit\'>Изменить</button>' +
@@ -370,12 +454,10 @@ function renderWeapons() {
 		}
 	}
 
-	const content = document.getElementById('content');
 	const isEditing = editingName !== null;
-	const editName = isEditing ? escapeHtml(editingName) : '';
-	const editFormula = isEditing ? escapeHtml(weapons[editingName]) : '';
 	const title = isEditing ? 'Изменить оружие' : 'Добавить оружие';
 	const btnText = isEditing ? 'Сохранить' : 'Добавить';
+	const content = document.getElementById('content');
 	content.innerHTML = '<div class=\'section\'>' +
 		'<div class=\'section-title\'>Мои оружия</div>' +
 		listHtml +
@@ -384,39 +466,61 @@ function renderWeapons() {
 		'<div class=\'section-title\'>' + title + '</div>' +
 		'<div class=\'input-stack\'>' +
 			'<label class=\'input-label\'>Название</label>' +
-			'<input type=\'text\' id=\'weaponName\' placeholder=\'Например, Длинный меч\' value=\'' + editName + '\'>' +
-			'<label class=\'input-label\'>Урон</label>' +
-			'<input type=\'text\' id=\'weaponFormula\' placeholder=\'Например, 2d6+3\' value=\'' + editFormula + '\'>' +
+			'<input type=\'text\' id=\'weaponName\' placeholder=\'Например, Длинный меч\' value=\'' + (isEditing ? escapeHtml(editingName) : '') + '\'>' +
 		'</div>' +
-		'<button id=\'addWeaponBtn\' onclick=\'addWeapon()\'>' + btnText + '</button>' +
+		'<div class=\'section-title\' style=\'margin-top: 12px;\'>Формулы урона</div>' +
+		'<div id=\'weaponEntriesContainer\' class=\'entries-list\'></div>' +
+		'<button class=\'secondary\' data-action=\'add-row\' data-context=\'weapon\' style=\'margin-top: 8px;\'>Добавить урон</button>' +
+		'<button id=\'addWeaponBtn\' style=\'margin-top: 12px;\' onclick=\'addWeapon()\'>' + btnText + '</button>' +
 	'</div>';
+
+	if (isEditing) {
+		weaponFormEntries = weapons[editingName].map(e => ({...e}));
+	} else {
+		if (weaponFormEntries.length === 0) weaponFormEntries = [{ type: 'Без типа', formula: '' }];
+	}
+	renderEntries('weaponEntriesContainer', weaponFormEntries, 'weapon');
 }
 
 function addWeapon() {
 	const name = getValue('weaponName');
-	const formula = getValue('weaponFormula');
-	if (!name || !formula) {
-		showAlert('Нужны название и формула');
+	if (!name) {
+		showAlert('Нужно название оружия.');
 		return;
 	}
-	const terms = parseDamage(formula);
-	if (terms.length === 0) {
-		showAlert('Не удалось распознать формулу урона.');
+
+	weaponFormEntries = readFormEntries('weaponEntriesContainer');
+	if (weaponFormEntries.length === 0) {
+		showAlert('Добавь хотя бы одну формулу урона.');
 		return;
 	}
+
+	for (const e of weaponFormEntries) {
+		if (!e.formula) {
+			showAlert('Заполни все формулы или удали пустую строку.');
+			return;
+		}
+		const terms = parseDamage(e.formula);
+		if (terms.length === 0) {
+			showAlert('Не удалось распознать формулу: ' + e.formula);
+			return;
+		}
+	}
+
 	if (editingName && editingName !== name) {
 		delete weapons[editingName];
 	}
+
 	editingName = null;
-	weapons[name] = formula;
+	weapons[name] = weaponFormEntries;
+	weaponFormEntries = [];
 	saveWeapons();
-	document.getElementById('weaponName').value = '';
-	document.getElementById('weaponFormula').value = '';
 	renderWeapons();
 }
 
 function editWeapon(name) {
 	editingName = name;
+	weaponFormEntries = weapons[name].map(e => ({...e}));
 	renderWeapons();
 }
 
@@ -424,9 +528,46 @@ function deleteWeapon(name) {
 	delete weapons[name];
 	if (editingName === name) {
 		editingName = null;
+		weaponFormEntries = [];
 	}
 	saveWeapons();
 	renderWeapons();
+}
+
+function addEntry(context) {
+	const containerId = context === 'damage' ? 'damageEntriesContainer' : 'weaponEntriesContainer';
+	const entries = readFormEntries(containerId);
+	entries.push({ type: 'Без типа', formula: '' });
+	if (context === 'damage') damageEntries = entries;
+	else weaponFormEntries = entries;
+	renderEntries(containerId, entries, context);
+}
+
+function removeEntry(context, index) {
+	const containerId = context === 'damage' ? 'damageEntriesContainer' : 'weaponEntriesContainer';
+	const entries = readFormEntries(containerId);
+	entries.splice(index, 1);
+	if (entries.length === 0) entries.push({ type: 'Без типа', formula: '' });
+	if (context === 'damage') damageEntries = entries;
+	else weaponFormEntries = entries;
+	renderEntries(containerId, entries, context);
+}
+
+function handleRemoveRowClick(btn) {
+	if (btn.dataset.confirm === '1') {
+		removeEntry(btn.dataset.context, parseInt(btn.dataset.index, 10));
+	} else {
+		btn.dataset.confirm = '1';
+		btn.textContent = 'Удалить';
+		btn.classList.add('confirming');
+		setTimeout(() => {
+			if (btn) {
+				btn.dataset.confirm = '0';
+				btn.textContent = btn.dataset.default || '✕';
+				btn.classList.remove('confirming');
+			}
+		}, 5000);
+	}
 }
 
 function showTab(tab) {
@@ -439,15 +580,6 @@ function showTab(tab) {
 	else if (tab === 'weapons') renderWeapons();
 }
 
-function escapeHtml(text) {
-	return text
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&#039;');
-}
-
 document.querySelectorAll('.tab-btn').forEach(btn => {
 	btn.addEventListener('click', () => showTab(btn.dataset.tab));
 });
@@ -455,13 +587,24 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 document.getElementById('content').addEventListener('click', (e) => {
 	const btn = e.target.closest('button[data-action]');
 	if (!btn) return;
+	const action = btn.dataset.action;
 	const name = btn.dataset.name;
-	if (btn.dataset.action === 'delete') deleteWeapon(name);
-	else if (btn.dataset.action === 'edit') editWeapon(name);
+	if (action === 'delete') deleteWeapon(name);
+	else if (action === 'edit') editWeapon(name);
+	else if (action === 'add-row') addEntry(btn.dataset.context);
+	else if (action === 'remove-row') handleRemoveRowClick(btn);
 });
 
 document.getElementById('modal-back').addEventListener('click', closeModal);
-document.getElementById('modal-content').addEventListener('click', onD20RowClick);
+document.getElementById('modal-content').addEventListener('click', (e) => {
+	const d20Row = e.target.closest('.d20-row');
+	if (d20Row) {
+		onD20RowClick(e);
+		return;
+	}
+	const btn = e.target.closest('button[data-action]');
+	if (btn && btn.dataset.action === 'add-weapons') addSelectedWeapons();
+});
 
 loadWeapons();
 showTab('d20');

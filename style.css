@@ -217,6 +217,11 @@ button.active {
 	overflow-wrap: anywhere;
 }
 
+.weapon-formula {
+	color: var(--hint);
+	font-size: 13px;
+}
+
 .weapon-actions {
 	display: flex;
 	gap: 8px;
@@ -330,4 +335,38 @@ button.active {
 	background: var(--secondary-bg);
 	border-radius: 8px;
 	margin-top: 8px;
+}
+
+.entries-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.form-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.form-row .damage-type {
+	flex: 0 0 35%;
+	min-width: 0;
+	padding: 10px 6px;
+}
+
+.form-row .damage-formula {
+	flex: 1;
+	min-width: 0;
+}
+
+.form-row .remove-row {
+	flex: 0 0 48px;
+	padding: 10px 4px;
+	font-size: 14px;
+}
+
+.form-row .remove-row.confirming {
+	background: #e74c3c;
+	color: #fff;
 }
