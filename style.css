@@ -69,6 +69,11 @@ input, select {
 	color: var(--text);
 }
 
+input[type='checkbox'], input[type='radio'] {
+	width: auto;
+	flex: 0;
+}
+
 button {
 	padding: 10px 8px;
 	border: none;
