@@ -88,7 +88,7 @@ function rollDie(sides) {
 
 function onD20RowClick(e) {
 	const row = e.target.closest('.d20-row');
-	if (!row || row.dataset.value === '1') return;
+	if (!row || row.dataset.raw === '1') return;
 	const dc = parseInt(row.dataset.value, 10);
 	if (isNaN(dc)) return;
 	applyD20Threshold(dc);
@@ -275,13 +275,11 @@ function runD20Sequence(count, mode, modifier) {
 	const rows = [];
 	const next = () => {
 		if (i >= count) {
-			if (modifier !== 0) {
-				const sum = rows.reduce((a, v) => a + v, 0) + modifier;
-				const total = document.createElement('div');
-				total.className = 'd20-total';
-				total.textContent = 'Сумма: ' + sum;
-				container.appendChild(total);
-			}
+			const sum = rows.reduce((a, v) => a + v, 0);
+			const total = document.createElement('div');
+			total.className = 'd20-total';
+			total.textContent = 'Сумма: ' + sum;
+			container.appendChild(total);
 			renderD20Control(rows);
 			updateD20Counter();
 			return;
@@ -291,7 +289,8 @@ function runD20Sequence(count, mode, modifier) {
 			rolls.push(rollDie(20));
 		}
 		const selected = mode === 'disadvantage' ? Math.min(...rolls) : Math.max(...rolls);
-		rows.push(selected);
+		const total = selected + modifier;
+		rows.push(total);
 		let label = (i + 1) + '. ';
 		if (selected === 1 || selected === 20) {
 			label += 'Крит. ' + selected;
@@ -300,16 +299,16 @@ function runD20Sequence(count, mode, modifier) {
 		} else {
 			label += selected;
 		}
+		if (modifier !== 0) {
+			label += (modifier > 0 ? ' + ' : ' - ') + Math.abs(modifier) + ' = ' + total;
+		}
 		const row = document.createElement('div');
 		row.className = 'd20-row';
-		row.dataset.value = selected;
+		row.dataset.raw = selected;
+		row.dataset.value = total;
 		row.textContent = label;
 		if (selected === 1) {
 			row.classList.add('miss');
-			container.appendChild(row);
-			renderD20Control(rows);
-			updateD20Counter();
-			return;
 		}
 		container.appendChild(row);
 		i++;
@@ -355,7 +354,7 @@ function updateD20ControlButtons() {
 function markD20Red(dc) {
 	const allRows = document.querySelectorAll('.d20-row');
 	for (const r of allRows) {
-		if (r.dataset.value === '1') continue;
+		if (r.dataset.raw === '1') continue;
 		const val = parseInt(r.dataset.value, 10);
 		if (val <= dc) {
 			r.classList.add('miss');
@@ -383,7 +382,7 @@ function selectNextD20Threshold() {
 function applyD20Threshold(dc) {
 	const allRows = document.querySelectorAll('.d20-row');
 	for (const r of allRows) {
-		if (r.dataset.value === '1') continue;
+		if (r.dataset.raw === '1') continue;
 		const val = parseInt(r.dataset.value, 10);
 		if (val >= dc) {
 			r.classList.add('hit');
