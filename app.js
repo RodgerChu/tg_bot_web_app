@@ -274,10 +274,11 @@ function runD20Sequence(count, mode, modifier) {
 function renderD20Control(rows) {
 	const control = document.getElementById('d20control');
 	if (!control) return;
-	const unique = [];
+	const uniqueSet = new Set();
 	for (const v of rows) {
-		if (v !== 1 && !unique.includes(v)) unique.push(v);
+		if (v !== 1) uniqueSet.add(v);
 	}
+	const unique = Array.from(uniqueSet);
 	unique.sort((a, b) => a - b);
 	d20ThresholdValues = unique;
 	d20ThresholdIndex = 0;
@@ -299,13 +300,35 @@ function updateD20ControlButtons() {
 	const control = document.getElementById('d20control');
 	if (!control) return;
 	const minus = control.querySelector('.d20-minus');
-	if (minus) minus.disabled = d20ThresholdIndex >= d20ThresholdValues.length - 1;
+	const plus = control.querySelector('.d20-plus');
+	if (minus) minus.disabled = d20ThresholdIndex < 0;
+	if (plus) plus.disabled = d20ThresholdIndex < 0;
+}
+
+function markD20Red(dc) {
+	const allRows = document.querySelectorAll('.d20-row');
+	for (const r of allRows) {
+		if (r.dataset.value === '1') continue;
+		const val = parseInt(r.dataset.value, 10);
+		if (val <= dc) {
+			r.classList.add('miss');
+			r.classList.remove('hit');
+			r.textContent = 'Промах: ' + val;
+		}
+	}
+	updateD20Counter();
 }
 
 function selectNextD20Threshold() {
 	if (!d20ThresholdValues.length) return;
-	if (d20ThresholdIndex >= d20ThresholdValues.length - 1) return;
-	d20ThresholdIndex++;
+	if (d20ThresholdIndex < 0) return;
+	const dc = d20ThresholdValues[d20ThresholdIndex];
+	markD20Red(dc);
+	if (d20ThresholdIndex < d20ThresholdValues.length - 1) {
+		d20ThresholdIndex++;
+	} else {
+		d20ThresholdIndex = -1;
+	}
 	updateD20ThresholdDisplay();
 	updateD20ControlButtons();
 }
@@ -686,7 +709,7 @@ document.getElementById('modal-content').addEventListener('click', (e) => {
 	if (!btn) return;
 	if (btn.dataset.action === 'add-weapons') addSelectedWeapons();
 	else if (btn.dataset.action === 'd20-minus') selectNextD20Threshold();
-	else if (btn.dataset.action === 'd20-plus') applyD20Threshold(d20ThresholdValues[d20ThresholdIndex]);
+	else if (btn.dataset.action === 'd20-plus' && d20ThresholdIndex >= 0) applyD20Threshold(d20ThresholdValues[d20ThresholdIndex]);
 });
 
 loadWeapons();
