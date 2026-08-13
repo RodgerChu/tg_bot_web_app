@@ -9,6 +9,8 @@ let currentTab = 'd20';
 let damageEntries = [{ type: 'Без типа', formula: '' }];
 let weaponFormEntries = [];
 let editingName = null;
+let d20ThresholdValues = [];
+let d20ThresholdIndex = 0;
 
 function loadWeapons() {
 	const value = localStorage.getItem(STORAGE_KEY);
@@ -42,6 +44,10 @@ function onD20RowClick(e) {
 	if (!row || row.dataset.value === '1') return;
 	const dc = parseInt(row.dataset.value, 10);
 	if (isNaN(dc)) return;
+	applyD20Threshold(dc);
+}
+
+function applyD20Threshold(dc) {
 	const allRows = document.querySelectorAll('.d20-row');
 	for (const r of allRows) {
 		if (r.dataset.value === '1') continue;
@@ -56,7 +62,20 @@ function onD20RowClick(e) {
 			r.textContent = 'Промах: ' + val;
 		}
 	}
+	updateD20ThresholdDisplay(dc);
 	updateD20Counter();
+}
+
+function updateD20ThresholdDisplay(dc) {
+	const control = document.getElementById('d20control');
+	if (!control) return;
+	if (dc !== undefined) {
+		const idx = d20ThresholdValues.indexOf(dc);
+		if (idx !== -1) d20ThresholdIndex = idx;
+	}
+	const value = d20ThresholdValues[d20ThresholdIndex];
+	const textEl = control.querySelector('.d20-threshold');
+	if (textEl) textEl.textContent = (value !== undefined ? value : '—');
 }
 
 function updateD20Counter() {
@@ -201,7 +220,7 @@ function doD20Roll() {
 	const mode = document.getElementById('d20modeValue').value;
 	const count = getInt('d20count', 1);
 	const modifier = getInt('d20mod', 0);
-	openModal('Результат броска d20', '<div class=\'d20-result\' id=\'d20result\'></div><div class=\'d20-counter\' id=\'d20counter\'></div>');
+	openModal('Результат броска d20', '<div class=\'d20-result\' id=\'d20result\'></div><div class=\'d20-counter\' id=\'d20counter\'></div><div id=\'d20control\'></div>');
 	runD20Sequence(count, mode, modifier);
 }
 
@@ -220,6 +239,7 @@ function runD20Sequence(count, mode, modifier) {
 				total.textContent = 'Сумма: ' + sum;
 				container.appendChild(total);
 			}
+			renderD20Control(rows);
 			updateD20Counter();
 			return;
 		}
@@ -244,6 +264,7 @@ function runD20Sequence(count, mode, modifier) {
 		if (selected === 1) {
 			row.classList.add('miss');
 			container.appendChild(row);
+			renderD20Control(rows);
 			updateD20Counter();
 			return;
 		}
@@ -252,6 +273,45 @@ function runD20Sequence(count, mode, modifier) {
 		setTimeout(next, 150);
 	};
 	next();
+}
+
+function renderD20Control(rows) {
+	const control = document.getElementById('d20control');
+	if (!control) return;
+	const unique = [];
+	for (const v of rows) {
+		if (v !== 1 && !unique.includes(v)) unique.push(v);
+	}
+	unique.sort((a, b) => a - b);
+	d20ThresholdValues = unique;
+	d20ThresholdIndex = 0;
+
+	if (unique.length === 0) {
+		control.innerHTML = '<div class=\'d20-control\'>Нет бросков кроме 1</div>';
+		return;
+	}
+
+	control.innerHTML = '<div class=\'d20-control\'>' +
+		'<button class=\'d20-minus\' data-action=\'d20-minus\' ' + (d20ThresholdIndex >= unique.length - 1 ? 'disabled' : '') + '>−</button>' +
+		'<div class=\'d20-threshold\'>' + unique[0] + '</div>' +
+		'<button class=\'d20-plus\' data-action=\'d20-plus\' ' + (d20ThresholdIndex <= 0 ? 'disabled' : '') + '>+</button>' +
+	'</div>';
+}
+
+function stepD20Threshold(direction) {
+	if (!d20ThresholdValues.length) return;
+	const newIndex = d20ThresholdIndex + direction;
+	if (newIndex < 0 || newIndex >= d20ThresholdValues.length) return;
+	d20ThresholdIndex = newIndex;
+	const dc = d20ThresholdValues[d20ThresholdIndex];
+	applyD20Threshold(dc);
+
+	const control = document.getElementById('d20control');
+	if (!control) return;
+	const minus = control.querySelector('.d20-minus');
+	const plus = control.querySelector('.d20-plus');
+	if (minus) minus.disabled = d20ThresholdIndex >= d20ThresholdValues.length - 1;
+	if (plus) plus.disabled = d20ThresholdIndex <= 0;
 }
 
 function escapeHtml(text) {
@@ -603,7 +663,10 @@ document.getElementById('modal-content').addEventListener('click', (e) => {
 		return;
 	}
 	const btn = e.target.closest('button[data-action]');
-	if (btn && btn.dataset.action === 'add-weapons') addSelectedWeapons();
+	if (!btn) return;
+	if (btn.dataset.action === 'add-weapons') addSelectedWeapons();
+	else if (btn.dataset.action === 'd20-minus') stepD20Threshold(1);
+	else if (btn.dataset.action === 'd20-plus') stepD20Threshold(-1);
 });
 
 loadWeapons();
