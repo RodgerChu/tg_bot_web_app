@@ -7,42 +7,8 @@ let weapons = {};
 let currentTab = 'd20';
 let damageSelectedWeapons = [];
 
-function storageGet(key) {
-	return new Promise((resolve) => {
-		if (tg.CloudStorage && tg.CloudStorage.getItem) {
-			tg.CloudStorage.getItem(key, (err, value) => {
-				resolve(value || null);
-			});
-		} else {
-			resolve(localStorage.getItem(key) || null);
-		}
-	});
-}
-
-function storageSet(key, value) {
-	return new Promise((resolve) => {
-		if (tg.CloudStorage && tg.CloudStorage.setItem) {
-			tg.CloudStorage.setItem(key, value, resolve);
-		} else {
-			localStorage.setItem(key, value);
-			resolve();
-		}
-	});
-}
-
-function storageRemove(key) {
-	return new Promise((resolve) => {
-		if (tg.CloudStorage && tg.CloudStorage.removeItem) {
-			tg.CloudStorage.removeItem(key, resolve);
-		} else {
-			localStorage.removeItem(key);
-			resolve();
-		}
-	});
-}
-
-async function loadWeapons() {
-	const value = await storageGet(STORAGE_KEY);
+function loadWeapons() {
+	const value = localStorage.getItem(STORAGE_KEY);
 	if (value) {
 		try { weapons = JSON.parse(value); } catch { weapons = {}; }
 	} else {
@@ -50,8 +16,8 @@ async function loadWeapons() {
 	}
 }
 
-async function saveWeapons() {
-	await storageSet(STORAGE_KEY, JSON.stringify(weapons));
+function saveWeapons() {
+	localStorage.setItem(STORAGE_KEY, JSON.stringify(weapons));
 }
 
 function showAlert(text) {
@@ -399,16 +365,16 @@ function addWeapon() {
 		return;
 	}
 	weapons[name] = formula;
-	saveWeapons().then(() => {
-		document.getElementById('weaponName').value = '';
-		document.getElementById('weaponFormula').value = '';
-		renderWeapons();
-	});
+	saveWeapons();
+	document.getElementById('weaponName').value = '';
+	document.getElementById('weaponFormula').value = '';
+	renderWeapons();
 }
 
 function deleteWeapon(name) {
 	delete weapons[name];
-	saveWeapons().then(renderWeapons);
+	saveWeapons();
+	renderWeapons();
 }
 
 function showTab(tab) {
@@ -441,4 +407,5 @@ document.getElementById('content').addEventListener('click', (e) => {
 
 document.getElementById('modal-back').addEventListener('click', closeModal);
 
-loadWeapons().then(() => showTab('d20'));
+loadWeapons();
+showTab('d20');
