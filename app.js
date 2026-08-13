@@ -12,14 +12,50 @@ let editingName = null;
 let d20ThresholdValues = [];
 let d20ThresholdIndex = 0;
 
-function loadWeapons() {
-	const value = localStorage.getItem(STORAGE_KEY);
-	if (value) {
-		try { weapons = JSON.parse(value); } catch { weapons = {}; }
-	} else {
-		weapons = {};
-	}
+function cloudGetItem(key) {
+	return new Promise((resolve) => {
+		let timer;
+		const done = (result) => {
+			clearTimeout(timer);
+			resolve(result);
+		};
+		timer = setTimeout(() => done(null), 3000);
+		if (!tg.CloudStorage || typeof tg.CloudStorage.getItem !== 'function') {
+			done(null);
+			return;
+		}
+		tg.CloudStorage.getItem(key, (error, value) => {
+			if (error) done(null);
+			else done(value);
+		});
+	});
+}
 
+function cloudSetItem(key, value) {
+	return new Promise((resolve) => {
+		let timer;
+		const done = (ok) => {
+			clearTimeout(timer);
+			resolve(ok);
+		};
+		timer = setTimeout(() => done(false), 3000);
+		if (!tg.CloudStorage || typeof tg.CloudStorage.setItem !== 'function') {
+			done(false);
+			return;
+		}
+		tg.CloudStorage.setItem(key, value, (error) => {
+			done(!error);
+		});
+	});
+}
+
+async function loadWeapons() {
+	const localValue = localStorage.getItem(STORAGE_KEY);
+	const cloudValue = await cloudGetItem(STORAGE_KEY);
+	const value = cloudValue || localValue;
+	if (value) {
+		weapons = JSON.parse(value);
+	}
 	for (const name in weapons) {
 		if (typeof weapons[name] === 'string') {
 			weapons[name] = [{ type: 'Без типа', formula: weapons[name] }];
@@ -28,7 +64,9 @@ function loadWeapons() {
 }
 
 function saveWeapons() {
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(weapons));
+	const data = JSON.stringify(weapons);
+	localStorage.setItem(STORAGE_KEY, data);
+	cloudSetItem(STORAGE_KEY, data);
 }
 
 function showAlert(text) {
@@ -712,5 +750,9 @@ document.getElementById('modal-content').addEventListener('click', (e) => {
 	else if (btn.dataset.action === 'd20-plus' && d20ThresholdIndex >= 0) applyD20Threshold(d20ThresholdValues[d20ThresholdIndex]);
 });
 
-loadWeapons();
-showTab('d20');
+loadWeapons().then(() => {
+	showTab(currentTab);
+}).catch(() => {
+	weapons = {};
+	showTab(currentTab);
+});
