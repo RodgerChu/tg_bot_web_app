@@ -221,8 +221,14 @@ function renderD20() {
 		'</div>' +
 		'<input type=\'hidden\' id=\'d20modeValue\' value=\'normal\'>' +
 		'<div class=\'row\'>' +
-			'<input type=\'number\' id=\'d20count\' placeholder=\'Кол-во d20\' value=\'1\' min=\'1\'>' +
-			'<input type=\'number\' id=\'d20mod\' placeholder=\'Модификатор\' value=\'0\'>' +
+			'<div class=\'input-col\'>' +
+				'<label class=\'input-label\'>Кол-во бросков</label>' +
+				'<input type=\'number\' id=\'d20count\' value=\'1\' min=\'1\'>' +
+			'</div>' +
+			'<div class=\'input-col\'>' +
+				'<label class=\'input-label\'>Модификатор</label>' +
+				'<input type=\'number\' id=\'d20mod\' value=\'0\'>' +
+			'</div>' +
 		'</div>' +
 		'<button onclick=\'doD20Roll()\'>Бросить</button>' +
 	'</div>';
@@ -246,8 +252,14 @@ function renderDamage() {
 	content.innerHTML = '<div class=\'section\'>' +
 		'<div class=\'section-title\'>Урон атаки</div>' +
 		'<div class=\'row\'>' +
-			'<input type=\'number\' id=\'attacks\' placeholder=\'Атак\' value=\'1\' min=\'1\'>' +
-			'<input type=\'text\' id=\'damage\' placeholder=\'Формула, например 2d6+3\'>' +
+			'<div class=\'input-col\'>' +
+				'<label class=\'input-label\'>Кол-во атак</label>' +
+				'<input type=\'number\' id=\'attacks\' value=\'1\' min=\'1\'>' +
+			'</div>' +
+			'<div class=\'input-col\'>' +
+				'<label class=\'input-label\'>Урон атаки</label>' +
+				'<input type=\'text\' id=\'damage\' placeholder=\'2d6+3\'>' +
+			'</div>' +
 		'</div>' +
 		'<div class=\'hint\'>Можно: 2d6+1d4+3-1. Разделитель d/д.</div>' +
 		'<div class=\'row\'>' +
@@ -344,9 +356,11 @@ function renderWeapons() {
 	'</div>' +
 	'<div class=\'section\'>' +
 		'<div class=\'section-title\'>Добавить оружие</div>' +
-		'<div class=\'row\'>' +
-			'<input type=\'text\' id=\'weaponName\' placeholder=\'Название\'>' +
-			'<input type=\'text\' id=\'weaponFormula\' placeholder=\'Урон, например 2d6+3\'>' +
+		'<div class=\'input-stack\'>' +
+			'<label class=\'input-label\'>Название</label>' +
+			'<input type=\'text\' id=\'weaponName\' placeholder=\'Например, Длинный меч\'>' +
+			'<label class=\'input-label\'>Урон</label>' +
+			'<input type=\'text\' id=\'weaponFormula\' placeholder=\'Например, 2d6+3\'>' +
 		'</div>' +
 		'<button onclick=\'addWeapon()\'>Добавить</button>' +
 	'</div>';
